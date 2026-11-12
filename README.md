@@ -30,8 +30,8 @@ This repository is built on the open-source BMW iDrive 7 platform:
 
 | App | Version | Needs internet | Touches vehicle ECUs |
 | :--- | :---: | :---: | :--- |
-| [Spotify](#1-spotify-spotify) | 1.0.23 | Yes | No |
-| [M-Copilot](#2-m-copilot-m_copilot) | 1.0.20 | Yes | No (reads driving signals, service list and fault memory) |
+| [Spotify](#1-spotify-spotify) | 1.0.24 | Yes | No |
+| [M-Copilot](#2-m-copilot-m_copilot) | 1.0.21 | Yes | No (reads driving signals, service list and fault memory) |
 
 > [!NOTE]
 > **M-Cinema (YouTube player) has been removed**: playback was unreliable on some firmware and the sound was poor, and CarPlay and Android Auto workarounds play YouTube better.
@@ -105,6 +105,8 @@ The recommended way to install and update these apps is the [**MGU Store**](http
 
 The head unit's installer refuses an app outright if its SOME/IP manifest names an interface, field or method the firmware's catalog (`/etc/oap/someip/someip-interfaces.json`) doesn't have, and older firmware has fewer. The MGU Store builds these apps on the head unit, and the build fits each app's vehicle signals to that unit's catalog: what the unit lacks is left out, so the app installs and runs without those values. The app's log lists them at start (`this unit has no ... - running without it`).
 
+2019 head units run Node 8.9.4 (later ones 8.16.2). Everything that runs in the car is checked on both: the tests run on them in CI (`.github/workflows/tests.yml`), and the apps' own code uses nothing newer. The apps need no internet to build, so the Store builds them even while the uplink is offline.
+
 ### The phone app
 
 The phone pages ([My cars](https://hexlay.github.io/idrive7-custom-apps/), M-Copilot's and Spotify's) install as an app, **iDrive Apps**, for all your cars one tap from the Home Screen:
@@ -151,7 +153,7 @@ To build locally: `python3 kit/tools/build.py <app_id>` writes `dist/<app_id>@<v
 * **Verified TLS**: all requests that carry tokens or keys verify the server's certificate chain and hostname; only the head unit's possibly wrong clock is tolerated.
 * **Local data**: tokens (`spotify_auth.json`, `copilot_auth.json`) and app state stay in each app's data folder on the head unit, one copy each (readable by the app only); a copy an older version kept next to the app's code is moved there.
 * **Git protection**: auth, state and key files (`*_auth.json`, `*_state.json`, `*.key`, `*.pem`) are excluded in `.gitignore`, and the build never packages them.
-* **Tested**: `node kit/tools/test_carlink.js` runs the page library against the car modules (tampering, replays, foreign links, the relay's limits); `node kit/tools/test_spotify.js` runs Spotify's client against a fake Web API, `test_spotify_auth.js` checks where it keeps the login, and `kit/tools/test_zh.js` / `test_zh.py` check the language builds.
+* **Tested**: `node kit/tools/test_carlink.js` runs the page library against the car modules (tampering, replays, foreign links, the relay's limits); `node kit/tools/test_spotify.js` runs Spotify's client against a fake Web API, `test_spotify_auth.js` checks where it keeps the login, and `kit/tools/test_zh.js` / `test_zh.py` check the language builds. All but `test_carlink.js` (the phone pages' WebCrypto) also run on the head unit's Node 8.9.4 and 8.16.2, in CI on every push.
 
 ---
 

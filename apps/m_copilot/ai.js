@@ -15,6 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const urlMod = require('url');
 const tlsDates = require('./kit/tls_dates');
+const { writeWhole } = require('./kit/write_whole');
 
 const CONFIG_PATH = path.join(__dirname, 'copilot_auth.json');
 
@@ -96,7 +97,8 @@ class AiBridge {
     saveConfig() {
         const target = (this.ctx && this.ctx.dataDir) ? path.join(this.ctx.dataDir, 'copilot_auth.json') : CONFIG_PATH;
         try {
-            fs.writeFileSync(target, JSON.stringify(this.config, null, 2), { encoding: 'utf8', mode: 0o600 });
+            // whole or not at all: a switch-off mid-write would leave the key file cut short (the key lost)
+            writeWhole(target, JSON.stringify(this.config, null, 2), 0o600);
             // no second copy of the keys next to the code
             if (target !== CONFIG_PATH) {
                 try { fs.unlinkSync(CONFIG_PATH); } catch (e) {}
@@ -647,7 +649,8 @@ class AiBridge {
         // Node 8: no global URL
         let u = null;
         try { u = urlMod.parse(urlStr); } catch (e) {}
-        if (!u || !u.hostname || (u.protocol !== 'https:' && u.protocol !== 'http:')) return { ok: false, text: 'Invalid relay URL: ' + urlStr };
+        // https only: the request carries the API key, which never goes out in plain text
+        if (!u || !u.hostname || u.protocol !== 'https:') return { ok: false, text: 'Invalid relay URL (https only): ' + urlStr };
         const messages = [{ role: 'system', content: system }];
         past.forEach((h) => { messages.push({ role: 'user', content: h.q }, { role: 'assistant', content: h.a }); });
         messages.push({ role: 'user', content: prompt });

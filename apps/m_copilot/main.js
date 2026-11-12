@@ -665,7 +665,7 @@ mgu.run({
                 } catch (e) { break; }
             }
             if (todo.length) {
-                try { require('fs').writeFileSync(IDS_FILE, JSON.stringify({ vin: vehicle.vin, ids: unitIds })); } catch (e) { /* next time */ }
+                try { require('./kit/write_whole').writeWhole(IDS_FILE, JSON.stringify({ vin: vehicle.vin, ids: unitIds })); } catch (e) { /* next time */ }
             }
             return unitIds;
         }

@@ -17,6 +17,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { writeWhole } = require('./kit/write_whole');
 
 const VIN_RE = /^[A-HJ-NPR-Z0-9]{17}$/;
 
@@ -163,7 +164,7 @@ class Vehicle {
     }
 
     _save() {
-        try { fs.writeFileSync(this.file, JSON.stringify(this.cache)); } catch (e) { this.log.warn('vehicle.json: ' + e.message); }
+        try { writeWhole(this.file, JSON.stringify(this.cache)); } catch (e) { this.log.warn('vehicle.json: ' + e.message); }
     }
 
     /**
@@ -228,7 +229,7 @@ class Vehicle {
         if (time <= this.profileAt) return false;
         this.profile = cleanProfile(p);
         this.profileAt = time;
-        try { fs.writeFileSync(this.profileFile, JSON.stringify({ time, profile: this.profile })); } catch (e) { this.log.warn('car_profile.json: ' + e.message); }
+        try { writeWhole(this.profileFile, JSON.stringify({ time, profile: this.profile })); } catch (e) { this.log.warn('car_profile.json: ' + e.message); }
         return true;
     }
 
