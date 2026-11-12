@@ -1123,13 +1123,8 @@ mgu.run({
 
                     // White backdrop for clean camera scanning
                     cv.roundRect(ox - 10, oy - 10, actualSz + 20, actualSz + 20, 10, '#ffffff');
-                    for (let r = 0; r < modCount; r++) {
-                        for (let c = 0; c < modCount; c++) {
-                            if (qr.getModule(c, r)) {
-                                cv.fillRect(ox + c * modPx, oy + r * modPx, modPx, modPx, '#000000');
-                            }
-                        }
-                    }
+                    // drawn once as a layer (kit gauges.qrCode), not a rectangle per module every frame
+                    G.qrCode(cv, qr, cachedQrUrl, ox, oy, modPx);
                 }
 
                 const cx = 314;

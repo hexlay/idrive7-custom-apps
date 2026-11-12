@@ -923,7 +923,7 @@ mgu.run({
             if (!qr) return;
             const n = qr.size, px = Math.floor(size / n), real = px * n, ox = x + Math.floor((size - real) / 2), oy = y + Math.floor((size - real) / 2);
             cv.roundRect(ox - 10, oy - 10, real + 20, real + 20, 10, '#ffffff');
-            for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.getModule(c, r)) cv.fillRect(ox + c * px, oy + r * px, px, px, '#000000');
+            G.qrCode(cv, qr, url, ox, oy, px);       // drawn once as a layer, not a rectangle per module every frame
         }
         const LANG_NAMES = { ka: 'Georgian', de: 'German', fr: 'French', es: 'Spanish', it: 'Italian', nl: 'Dutch', pt: 'Portuguese', tr: 'Turkish', pl: 'Polish' };
         function drawConnect(cv, t) {

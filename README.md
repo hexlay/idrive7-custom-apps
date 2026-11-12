@@ -30,8 +30,8 @@ This repository is built on the open-source BMW iDrive 7 platform:
 
 | App | Version | Needs internet | Touches vehicle ECUs |
 | :--- | :---: | :---: | :--- |
-| [Spotify](#1-spotify-spotify) | 1.0.24 | Yes | No |
-| [M-Copilot](#2-m-copilot-m_copilot) | 1.0.21 | Yes | No (reads driving signals, service list and fault memory) |
+| [Spotify](#1-spotify-spotify) | 1.0.25 | Yes | No |
+| [M-Copilot](#2-m-copilot-m_copilot) | 1.0.22 | Yes | No (reads driving signals, service list and fault memory) |
 
 > [!NOTE]
 > **M-Cinema (YouTube player) has been removed**: playback was unreliable on some firmware and the sound was poor, and CarPlay and Android Auto workarounds play YouTube better.
