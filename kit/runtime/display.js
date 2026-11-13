@@ -964,7 +964,11 @@ class Display {
         if (sx > end) c.fillRect(end, 0, sx - end, geo.headH, HMI.headBg);
         // the tab the controller is on (the kit holds it: Display._ccu)
         const ft = this.focusTab != null && (!this.sheet || this.sheetHead) && (c.tabRects || []).find((q) => q.i === this.focusTab);
-        if (ft) G.focusBar(c, t, ft.x + 4, ft.y + 12, ft.w - 8, ft.h - 24, 3, true);
+        if (ft) {
+            G.focusBar(c, t, ft.x + 4, ft.y + 12, ft.w - 8, ft.h - 24, 3, true);
+            // its name white over the bar (the open tab's own colour, red in iDrive Red, would not show on it)
+            if (ft.label) c.text(ft.label.text, ft.label.x, ft.label.y, ft.label.size, '#ffffff', ft.label.opt);
+        }
         // the page button (or row) the controller is on, and one just pressed
         const k = pl.scale, onPage = (key) => !this.sheet && key && (this.pageTargets || []).find((q) => 'tgt:' + q.key === key);
         // the HMI's focus is a bar with square-ish corners; a round button (r of half its height or more) keeps its circle

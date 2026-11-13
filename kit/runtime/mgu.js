@@ -126,13 +126,13 @@ class Settings {
         for (const s of this.schema) {
             if (s.aliases && Object.prototype.hasOwnProperty.call(s.aliases, this.values[s.key])) this.values[s.key] = s.aliases[this.values[s.key]];
         }
-        // one-time move of saved settings to the new default theme (iDrive Blue, v3); later choices are kept.
+        // one-time move of saved settings to the new default theme (iDrive Red, v4); later choices are kept.
         // "migrateFrom" (app.json, the theme setting): only a car still on one of these themes (the app's
         // old default) moves; a theme the owner picked stays
         const th = this.item('theme');
-        if (th && this.values._themeV !== 3) {
+        if (th && this.values._themeV !== 4) {
             const saved = fs.existsSync(this.file);
-            this.values._themeV = 3;            // (a fresh install has the default: the mark is saved with its first setting)
+            this.values._themeV = 4;            // (a fresh install has the default: the mark is saved with its first setting)
             if (saved && (!th.migrateFrom || th.migrateFrom.indexOf(this.values.theme) >= 0)) {
                 this.values.theme = th.default;
                 try { Settings.writeWhole(this.file, JSON.stringify(this.values, null, 1)); } catch (e) { /* read-only */ }

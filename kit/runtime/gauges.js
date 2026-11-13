@@ -144,7 +144,7 @@ const col = (t, c, dflt) => (c ? t[c] || c : dflt);
  */
 const lineCol = (t) => t.line || withAlpha('#ffffff', 0.14);
 const faintCol = (t) => t.faint || withAlpha(t.dim || '#8e9aa7', 0.7);
-// the focus bar: the theme's own (iDrive Blue), else its selection colour with a lighter edge of the same hue
+// the focus bar: the theme's own (iDrive Red, iDrive Blue), else its selection colour with a lighter edge of the same hue
 const focusCols = (t) => {
     const fill = t.focus || t.sel || t.accent;
     return { fill, edge: t.focusEdge || mix(fill, '#ffffff', 0.4) };
@@ -162,6 +162,14 @@ function background(cv, t, x, y, w, h) {
  */
 function focusBar(cv, t, x, y, w, h, r, over) {
     const f = focusCols(t);
+    // (focusLines: the HMI's own, square, with its edge as a line along the top and the bottom)
+    if (t.focusLines) {
+        const a = over ? 0.5 : 1, e = Math.min(2, h / 4);
+        cv.card(x, y, w, h, 0, [[0, withAlpha(f.fill, a)], [1, withAlpha(t.focusLow || f.fill, a)]]);
+        cv.fillRect(x, y, w, e, f.edge);
+        cv.fillRect(x, y + h - e, w, e, f.edge);
+        return;
+    }
     r = r == null ? 3 : Math.min(r, h / 2);
     cv.card(x, y, w, h, r, [[0, withAlpha(f.fill, over ? 0.34 : 0.62)], [1, withAlpha(f.fill, over ? 0.2 : 0.38)]]);
     cv.strokeRoundRect(x, y, w, h, r, 2, withAlpha(f.edge, 0.95));
@@ -180,12 +188,18 @@ const isFocus = (cv, key) => !!cv.focusKey && cv.focusKey === String(key);
  */
 function listRow(cv, t, x, y, w, h, o) {
     o = o || {};
+    // (rowTop: the HMI's grey list panel under the rows; the rows next to each other make it one panel)
+    if (t.rowTop) cv.card(x, y, w, h, 0, [[0, t.rowTop], [1, t.rowBottom || t.rowTop]]);
     if (o.focus) { focusBar(cv, t, x, y + 1, w, h - 1, 3); return; }
     if (o.active) {
         cv.fillRect(x, y, w, h, withAlpha('#ffffff', 0.07));
         cv.fillRect(x, y + 6, 3, h - 12, t.sel || t.accent);
     }
-    if (o.line !== false) hairline(cv, t, x, y + h, w);
+    if (o.line === false) return;
+    if (t.rowTop) {
+        cv.fillRect(x, y + h - 2, w, 1, t.rowLine || '#00000080');
+        cv.fillRect(x, y + h - 1, w, 1, t.rowShine || withAlpha('#ffffff', 0.18));
+    } else hairline(cv, t, x, y + h, w);
 }
 
 /** A section's title, as the HMI titles its lists: light weight at x, baseline y, a hairline under it to w. */
@@ -914,7 +928,8 @@ function headerCompact(cv, t, x, y, w, h, title, tabs, sel, badges, k) {
     names.forEach((n, i) => {
         const on = i === sel, bw = tw[i];
         if (tx + bw > x + room) return;
-        cv.tabRects.push({ i, x: tx, y, w: bw, h });
+        // (label: the name to draw again in white over the controller's focus bar, Display._drawChrome)
+        cv.tabRects.push({ i, x: tx, y, w: bw, h, label: { text: n, x: tx + bw / 2, y: y + h / 2 + tf * 0.34, size: tf, opt } });
         const lw = cv.textWidth(n, tf, opt);
         // the open tab: white, a thin blue line under its name (as the HMI marks the open one of its tabs)
         if (on) cv.fillRect(tx + (bw - lw) / 2, y + h / 2 + tf * 0.36 + Math.round(10 * z), lw, Math.max(3, Math.round(3 * z)), S);

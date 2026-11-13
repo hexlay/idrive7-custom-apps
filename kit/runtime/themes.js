@@ -1,16 +1,36 @@
 'use strict';
 /**
  * themes.js - colour schemes for kit-drawn screens. Picked per app in its
- * settings ("theme"); unknown ids fall back to iDrive Blue, the default.
+ * settings ("theme"); unknown ids fall back to iDrive Red, the default.
  * oil = colour of oil temperature (red in M Tricolour, so it stands apart from the blue coolant).
  * bar = fill of the OEM-style bars, hang = their peak hold (default: the fill colour), sel = selected tab (selText = its name, default sel), marker = the '|' at the end of a bar / on a chart.
  * mStripes = the M stripes on panel titles (G.panel).
  * ramp = colours a bar runs through from low to high; hotRamp = a dial's arc, running
  * from the theme colour to red at the dial's limit (redline, max boost, ...).
+ * rowTop / rowBottom: list rows on the HMI's grey list panel (G.listRow), parted by a dark line (rowLine)
+ * over a light one (rowShine); focusLines: the HMI's square focus bar, its bright edge (focusEdge) as a
+ * line along the top and the bottom, its fill running from focus down to focusLow.
  */
 const THEMES = {
     /*
-     * iDrive Blue (the default): the iDrive 7 HMI's own look. Black with a faint blue light from the
+     * iDrive Red (the default): the iDrive 7 HMI's native lists as the car draws them (colours taken from
+     * photos of its native list screens): black around a grey list panel, white text, a red title and a
+     * red focus bar with bright red lines along its top and bottom.
+     */
+    idrive_red: {
+        name: 'iDrive Red',
+        bg: '#000000', bgTop: '#0f1018', bgBottom: '#010102',
+        panelTop: '#1b1d25', panelBottom: '#101117', panelEdge: '#2c2f3a',
+        rowTop: '#4f5260', rowBottom: '#434654', rowLine: '#1c1d25', rowShine: '#ffffff2e',
+        tab: '#ffffff', track: '#2a2c36', tick: '#4a4d5a', text: '#ffffff', dim: '#b6b9c4', faint: '#80838f',
+        line: '#ffffff24', focus: '#a72436', focusLow: '#801a29', focusEdge: '#ff4d57', focusLines: true,
+        accent: '#e8202e', accent2: '#ff5a63', ok: '#5fbf6b', warn: '#f2a531', crit: '#ff3b30', cold: '#73b9ff',
+        glow: '#e8202e40', stripes: ['#81c4ff', '#16588e', '#e7222e'], oil: '#e5352d', bar: '#e8202e', sel: '#e8202e', selText: '#ff4048', marker: '#ffffff',
+        ramp: ['#7a1020', '#e8202e', '#ff8a90'],
+        hotRamp: ['#7a1020', '#b81828', '#e8202e', '#ff4048', '#ff8a90'],
+    },
+    /*
+     * iDrive Blue: the iDrive 7 HMI's look in blue. Black with a faint blue light from the
      * top, white text, grey secondary text, hairline separators, and blue only where the HMI uses it -
      * the controller's focus bar (focus / focusEdge), a selection, a progress bar. bgTop / bgBottom:
      * the page's light; line: the separators; faint: the quietest text (hints, units).
@@ -70,7 +90,7 @@ const THEMES = {
     },
 };
 
-function theme(id) { return THEMES[id] || THEMES.idrive; }
+function theme(id) { return THEMES[id] || THEMES.idrive_red; }
 const ids = () => Object.keys(THEMES);
 
 module.exports = { THEMES, theme, ids };

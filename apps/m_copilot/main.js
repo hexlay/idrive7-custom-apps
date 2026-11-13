@@ -1454,7 +1454,7 @@ mgu.run({
             if (!force && now - lastRenderTime < 250) return;
             const cv = ctx.canvas(W, H);
             // what the frame shows: unchanged, the frame isn't drawn again (a safety redraw every 2 s)
-            const sig = [ctx.display && ctx.display.focusKey, ai.hasInternet, ai.isConfigured(), showPhoneQr, showKeyboard, customQuery, activeCategory, selectedTopicIdx, currentPrompt, currentResponse,
+            const sig = [ctx.display && ctx.display.focusKey, settings.get('theme'), ai.hasInternet, ai.isConfigured(), showPhoneQr, showKeyboard, customQuery, activeCategory, selectedTopicIdx, currentPrompt, currentResponse,
                 dialogueScroll, canFollowUp, isThinking, telemetry.moving, vitalsLine(), statusMsg && now - statusTime < 3500 ? statusMsg : '', ai.modelLabel(), providerName(),
                 cv.extra || 0, page === 2 ? cloudPair.getPairingUrl() + JSON.stringify(vehicle.profile || {}) + (ai.config.model || '') : '', page, page === 1 ? Math.floor(now / 1000) + (checking || '') : ''].join('|');
             if (!force && sig === lastSig && now - lastRenderTime < 2000) return;
@@ -1518,6 +1518,8 @@ mgu.run({
         // buttons are left out (the kit then drops the empty bar and gives the page its height). On the
         // HMI's own path they stay, so the controller can still reach both actions there.
         if (ctx.hideButton) { ctx.hideButton('BTN_PROMPT'); ctx.hideButton('BTN_REPAIR'); }
+        // a new colour theme (Settings): drawn at once
+        settings.onChange((k) => { if (k === 'theme') render(true); });
 
         ui.onClick('BTN_REPAIR', () => {
             page = 2;
