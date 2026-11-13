@@ -30,8 +30,8 @@ This repository is built on the open-source BMW iDrive 7 platform:
 
 | App | Version | Needs internet | Touches vehicle ECUs |
 | :--- | :---: | :---: | :--- |
-| [Spotify](#1-spotify-spotify) | 1.0.27 | Yes | No |
-| [M-Copilot](#2-m-copilot-m_copilot) | 1.0.24 | Yes | No (reads driving signals, service list and fault memory) |
+| [Spotify](#1-spotify-spotify) | 1.0.28 | Yes | No |
+| [M-Copilot](#2-m-copilot-m_copilot) | 1.0.25 | Yes | No (reads driving signals, service list and fault memory) |
 
 > [!NOTE]
 > **M-Cinema (YouTube player) has been removed**: playback was unreliable on some firmware and the sound was poor, and CarPlay and Android Auto workarounds play YouTube better.
@@ -157,7 +157,7 @@ To build locally: `python3 kit/tools/build.py <app_id>` writes `dist/<app_id>@<v
 * **Verified TLS**: all requests that carry tokens or keys verify the server's certificate chain and hostname; only the head unit's possibly wrong clock is tolerated.
 * **Local data**: tokens (`spotify_auth.json`, `copilot_auth.json`) and app state stay in each app's data folder on the head unit, one copy each (readable by the app only); a copy an older version kept next to the app's code is moved there.
 * **Git protection**: auth, state and key files (`*_auth.json`, `*_state.json`, `*.key`, `*.pem`) are excluded in `.gitignore`, and the build never packages them.
-* **Tested**: `node kit/tools/test_carlink.js` runs the page library against the car modules (tampering, replays, foreign links, the relay's limits); `node kit/tools/test_spotify.js` runs Spotify's client against a fake Web API, `test_spotify_auth.js` checks where it keeps the login, and `kit/tools/test_zh.js` / `test_zh.py` check the language builds. All but `test_carlink.js` (the phone pages' WebCrypto) also run on the head unit's Node 8.9.4 and 8.16.2, in CI on every push.
+* **Tested**: `node kit/tools/test_carlink.js` runs the page library against the car modules (tampering, replays, foreign links, the relay's limits); `node kit/tools/test_spotify.js` runs Spotify's client against a fake Web API, `test_spotify_auth.js` checks where it keeps the login, `test_copilot_signals.js` feeds M-Copilot's signal decoding what cars send (names, wire numbers, plug-in hybrid driving modes, psi tyres, "no value"), and `kit/tools/test_zh.js` / `test_zh.py` check the language builds. All but `test_carlink.js` (the phone pages' WebCrypto) also run on the head unit's Node 8.9.4 and 8.16.2, in CI on every push.
 
 ---
 

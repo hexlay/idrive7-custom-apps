@@ -29,6 +29,7 @@ jobs:
       - run: node kit/tools/test_spotify.js
       - run: node kit/tools/test_spotify_auth.js
       - run: node kit/tools/test_diag_options.js
+      - run: node kit/tools/test_copilot_signals.js
       - run: node kit/tools/test_zh.js
       - run: node kit/renderd/test/test_gate_apps.js
 
@@ -47,6 +48,7 @@ jobs:
       - run: node kit/tools/test_spotify.js
       - run: node kit/tools/test_spotify_auth.js
       - run: node kit/tools/test_diag_options.js
+      - run: node kit/tools/test_copilot_signals.js
       - run: node kit/tools/test_zh.js
       - run: python3 kit/tools/test_zh.py
       - run: node kit/renderd/test/test_gate_apps.js

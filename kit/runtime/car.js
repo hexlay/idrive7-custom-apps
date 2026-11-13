@@ -2,8 +2,10 @@
 /**
  * car.js - the common driving signals, scaled, with demo fallback.
  *
- *   const car = new Car(ctx, ['rpm', 'speed', 'accel', 'temps', 'gear', 'torque'], extra);
+ *   const car = new Car(ctx, ['rpm', 'speed', 'accel', 'temps', 'gear', 'torque'], extra, opts);
  *   extra (optional) = { iface: { field: fn } }, more fields on the same watches (one proxy per interface)
+ *   opts.poll (optional) = { iface: ms }, read that interface's fields again this often (fields a car may
+ *   not notify: TPMS, KombiIF ...; see signals.watch pollMs)
  *   car.setRedline(rpm) -> the demo drive revs to this rpm (default 7000)
  *   car.data()      -> { rpm, speed, gLong, gLat, coolant, oil, gear, torque, demo }
  *   car.onSample(fn)-> fn(data, tMs) on every new speed/rpm/accel sample (also in demo, 20 Hz)
@@ -89,7 +91,7 @@ class GearGuess {
 }
 
 class Car {
-    constructor(ctx, groups, extra) {
+    constructor(ctx, groups, extra, opts) {
         this.ctx = ctx; this.log = ctx.log;
         const over = (ctx.spec.config && ctx.spec.config.scaling) || {};
         // per-signal merge: an override of only `factor` keeps the default `invalid` / `invalidFrom`
@@ -144,7 +146,8 @@ class Car {
         this.subs = [];
         this.t0 = Date.now();
         this.stopped = false;
-        Object.keys(watches).forEach((iface) => ctx.signals.watch(iface, '1', watches[iface], this.log)
+        const poll = (opts && opts.poll) || {};
+        Object.keys(watches).forEach((iface) => ctx.signals.watch(iface, '1', watches[iface], this.log, poll[iface] ? { pollMs: poll[iface] } : undefined)
             .then((s) => {
                 if (this.stopped) { s.shutdown(); return; }       // stop() came first
                 this.subs.push(s);

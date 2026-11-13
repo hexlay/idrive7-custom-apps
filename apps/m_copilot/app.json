@@ -2,7 +2,7 @@
   "id": "m_copilot",
   "title": "M-Copilot",
   "description": "AI co-driver that answers with your car's own data: live readings, service list, fault memory, model and engine from the car, plus your tune and mods. Read-only.",
-  "version": "1.0.24",
+  "version": "1.0.25",
   "vendor": "custom",
   "loggingId": "OAMC",
   "iconGlyph": "copilot",
@@ -22,6 +22,10 @@
       "statusLongitudinalAccelerationMassCenter": "rs",
       "statusLateralAccelerationMassCenter": "rs",
       "statusPushButtonMSA2": "rs"
+    },
+    "de.bmw.infotainment.vehicle.Vehicle": {
+      "_optional": "the car's display units; tyre pressures are then told from their values",
+      "statusNewCurrentUnitsStatusExt": "rs"
     },
     "de.bmw.infotainment.vehicle.Vehicle2": {
       "statusCarSpeed2": "rs",
