@@ -1,15 +1,33 @@
 'use strict';
 /**
  * themes.js - colour schemes for kit-drawn screens. Picked per app in its
- * settings ("theme"); unknown ids fall back to M Tricolour, the default.
+ * settings ("theme"); unknown ids fall back to iDrive Blue, the default.
  * oil = colour of oil temperature (red in M Tricolour, so it stands apart from the blue coolant).
  * bar = fill of the OEM-style bars, hang = their peak hold (default: the fill colour), sel = selected tab (selText = its name, default sel), marker = the '|' at the end of a bar / on a chart.
+ * mStripes = the M stripes on panel titles (G.panel).
  * ramp = colours a bar runs through from low to high; hotRamp = a dial's arc, running
  * from the theme colour to red at the dial's limit (redline, max boost, ...).
  */
 const THEMES = {
+    /*
+     * iDrive Blue (the default): the iDrive 7 HMI's own look. Black with a faint blue light from the
+     * top, white text, grey secondary text, hairline separators, and blue only where the HMI uses it -
+     * the controller's focus bar (focus / focusEdge), a selection, a progress bar. bgTop / bgBottom:
+     * the page's light; line: the separators; faint: the quietest text (hints, units).
+     */
+    idrive: {
+        name: 'iDrive Blue',
+        bg: '#000000', bgTop: '#0b1724', bgBottom: '#010204',
+        panelTop: '#0d141c', panelBottom: '#070b10', panelEdge: '#1f2a36',
+        tab: '#ffffff', track: '#1a232d', tick: '#3b4652', text: '#ffffff', dim: '#8e9aa7', faint: '#5d6875',
+        line: '#ffffff24', focus: '#1d64c4', focusEdge: '#5fa8ff',
+        accent: '#3f8ef0', accent2: '#7cb8ff', ok: '#5fbf6b', warn: '#f2a531', crit: '#e5352d', cold: '#73b9ff',
+        glow: '#3f8ef040', stripes: ['#81c4ff', '#16588e', '#e7222e'], oil: '#e5352d', bar: '#3f8ef0', sel: '#3f8ef0', selText: '#ffffff', marker: '#ffffff',
+        ramp: ['#1d4f8f', '#3f8ef0', '#9ccaff'],
+        hotRamp: ['#1d4f8f', '#3f8ef0', '#3f8ef0', '#c04cdc', '#e5352d'],
+    },
     m_red: {
-        name: 'M Red',
+        name: 'M Red', mStripes: true,
         bg: '#050506', panelTop: '#17181c', panelBottom: '#0d0d10', panelEdge: '#2a2b31',
         tab: '#e6e6e6', track: '#222329', tick: '#5a5c64', text: '#ffffff', dim: '#8e9199',
         accent: '#e1001a', accent2: '#ff5a5f', ok: '#e1001a', warn: '#ffb31a', crit: '#ff1f1f', cold: '#3d8bff',
@@ -17,7 +35,7 @@ const THEMES = {
         hotRamp: ['#7a0010', '#b00016', '#e1001a', '#ff2030', '#ff5a64'],
     },
     m_tricolour: {
-        name: 'M Tricolour',
+        name: 'M Tricolour', mStripes: true,
         bg: '#04060a', panelTop: '#141a24', panelBottom: '#0a0d13', panelEdge: '#242c39',
         tab: '#e6e6e6', track: '#1b212b', tick: '#4c5666', text: '#f4f7fb', dim: '#8a95a6',
         accent: '#f4f7fb', accent2: '#81c4ff', ok: '#f4f7fb', warn: '#ffb020', crit: '#ef2b2d', cold: '#7fd1ff',
@@ -52,7 +70,7 @@ const THEMES = {
     },
 };
 
-function theme(id) { return THEMES[id] || THEMES.m_tricolour; }
+function theme(id) { return THEMES[id] || THEMES.idrive; }
 const ids = () => Object.keys(THEMES);
 
 module.exports = { THEMES, theme, ids };

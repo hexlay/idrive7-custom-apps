@@ -26,6 +26,8 @@
  *   {t:'screens', stack, closed}          the app's screen stack; closed: the user left it (the page shows the HMI's app picker)
  *   {t:'focus', id}                       the bar button the HMI's focus is on (controller not grabbed)
  *   {t:'soft', png}                       the HMI's own image of the app's screen (software path), base64 PNG
+ *   {t:'nui', comps, all}                 what the app set on its native screens' components (text, cells, vis, chk,
+ *                                         pictures); all: the whole of it (a page that connects)
  *   {t:'stats', msgs, bytes, ticks}       per second
  *   {t:'note', s}                         a short message for the user (the app opened an HMI screen not drawn here)
  * page -> server: JSON
@@ -33,9 +35,10 @@
  *   {t:'fps', n}                          cap (0: none)        {t:'gstats', fps, avgMs, maxMs}  the renderer's, for STATS
  *   {t:'touch', phase: 1|2|3, x, y}       screen px
  *   {t:'ccu', turn: n} | {t:'ccu', press: bool} | {t:'ccu', tilt: 'N'|'E'|'S'|'W'|null}
- *   {t:'hmi', a: 'back'|'home'|'open', screen}   {t:'click', id}  (an HMI button)
+ *   {t:'hmi', a: 'back'|'home'|'open', screen}   {t:'click', id, row}  (an HMI button; row: a drop-down's chosen value)
  *   {t:'set', k, v}  {t:'sig', mode: 'demo'|'manual', v: {rpm, speed, coolant, oil, gear, gLong, gLat, torque}}
  *   {t:'app', id}  {t:'restart'}
+ *   {t:'shot', name, i, n, part}          a screenshot (window.emuShot), saved to preview/emu/shots/<name>.png
  *   {t:'drop', why}                       the page's renderer dropped the client: the connection is closed
  *   {t:'rerror', s}                       an error the renderer would send the app (ERROR)
  *   {t:'replay'}                          a new renderer on the page: the connection so far again
@@ -195,6 +198,7 @@ server.on('upgrade', (req, sock, head) => {
     ws.send({ t: 'log', lines: App.log.slice(-300) });
     ws.send({ t: 'sigmode', mode: Sig.mode, v: Sig.v });
     if (App.soft) ws.send({ t: 'soft', png: App.soft });
+    ws.send({ t: 'nui', comps: App.nui, all: true });
     replay(ws);
 });
 
@@ -496,6 +500,28 @@ setInterval(() => {
 /* ---------------- the page's messages ---------------- */
 const Sig = { mode: 'demo', v: { rpm: 900, speed: 0, coolant: 90, oil: 95, gear: 'P', gLong: 0, gLat: 0, torque: 40 } };
 const SIG_KEYS = ['rpm', 'speed', 'coolant', 'oil', 'gLong', 'gLat', 'torque'];
+/*
+ * {t:'shot', name, i, n, part}: the page's screenshot (window.emuShot(name) there) as base64 PNG in n parts
+ * (a page message stays under 1 MiB); the last part writes preview/emu/shots/<name>.png.
+ */
+const shots = new Map();
+function saveShot(m) {
+    const name = String(m.name || 'shot').replace(/[^\w.-]/g, '_').slice(0, 64) || 'shot';
+    const i = Number(m.i) || 0, n = Math.min(64, Math.max(1, Number(m.n) || 1));
+    if (i === 0) shots.set(name, []);
+    const parts = shots.get(name);
+    if (!parts || parts.length !== i) { shots.delete(name); return; }
+    parts.push(String(m.part || ''));
+    if (parts.length < n) return;
+    shots.delete(name);
+    const dir = path.join(ROOT, 'preview', 'emu', 'shots'), f = path.join(dir, name + '.png');
+    try {
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(f, Buffer.from(parts.join(''), 'base64'));
+        appLog('info', 'screenshot: ' + path.relative(ROOT, f));
+    } catch (e) { appLog('warn', 'screenshot: ' + e.message); }
+}
+
 function onPage(ws, m) {
     switch (m.t) {
     case 'tick': if (Tick.busy) drawn(); break;
@@ -512,7 +538,8 @@ function onPage(ws, m) {
         }
         toChild({ t: 'hmi', a: m.a, screen: m.screen && String(m.screen) });
         break;
-    case 'click': toChild({ t: 'click', id: String(m.id) }); break;
+    case 'click': toChild({ t: 'click', id: String(m.id), row: m.row != null && isFinite(Number(m.row)) ? Number(m.row) : undefined }); break;
+    case 'shot': saveShot(m); break;
     case 'set': toChild({ t: 'set', k: String(m.k), v: m.v }); break;
     case 'sig':
         Sig.mode = m.mode === 'manual' ? 'manual' : 'demo';
@@ -544,7 +571,15 @@ function onPage(ws, m) {
 }
 
 /* ---------------- the app: build, child process, live reload ---------------- */
-const App = { lock: null, waiting: null, closed: false, opened: false, openNext: false, child: null, childId: null, gen: 0, exiting: null, deferred: null, loading: false, status: { t: 'status', s: 'starting' }, log: [], spec: null, values: null, stack: [], soft: null, building: null, again: false };
+const App = { lock: null, waiting: null, closed: false, opened: false, openNext: false, child: null, childId: null, gen: 0, exiting: null, deferred: null, loading: false, status: { t: 'status', s: 'starting' }, log: [], spec: null, values: null, stack: [], soft: null, nui: {}, building: null, again: false };
+/** The app's native screens' components as the HMI keeps them ({t:'nui'} from the app, merged; a new page gets all of it). */
+function mergeNui(p) {
+    Object.keys(p || {}).forEach((n) => {
+        const c = App.nui[n] || (App.nui[n] = { cells: {}, img: {} }), q = p[n];
+        Object.assign(c.cells, q.cells || {}); Object.assign(c.img, q.img || {});
+        ['vis', 'chk', 'sel'].forEach((k) => { if (q[k] !== undefined) c[k] = q[k]; });
+    });
+}
 function appLog(l, s) {
     const lines = String(s).replace(/\s+$/, '').split('\n').map((x) => [l, x]);
     App.log.push.apply(App.log, lines);
@@ -637,7 +672,7 @@ function start(id) {
         if (App.building) { App.deferred = id; return; }
         App.deferred = null;
         setStatus('starting', '', id);
-        App.stack = []; App.soft = null;
+        App.stack = []; App.soft = null; App.nui = {};
         toPages({ t: 'soft', png: null });              // (the old app's picture in the HMI goes)
         const data = path.join(ROOT, 'preview', 'emu', id);
         fs.mkdirSync(data, { recursive: true });
@@ -671,6 +706,7 @@ function start(id) {
                 toPages({ t: 'screens', stack: m.stack, closed: App.closed });
             }
             else if (m.t === 'soft') { App.soft = m.png; toPages({ t: 'soft', png: m.png }); }
+            else if (m.t === 'nui') { mergeNui(m.comps); toPages(m); }
             else if (m.t === 'focus' || m.t === 'note') toPages(m);
         });
         ch.on('exit', (code, sig) => {
