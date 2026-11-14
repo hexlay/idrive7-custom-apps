@@ -343,7 +343,7 @@ class AiBridge {
                 ? '12 V system voltage, engine running (the alternator charging: about 13.5-14.8 V)' : '12 V system voltage', es.v12, (v) => r2(v) + ' V');
             const run = num(t.engineRunMin) ? (t.engineRunFromStart ? 'engine running for ' + r0(t.engineRunMin) + ' min since its start' : 'engine running at least ' + r0(t.engineRunMin) + ' min')
                 : 'how long the engine has run is not known';
-            e('Misfires this driving cycle, per cylinder (' + run + '; few minutes of running say little)', Array.isArray(es.misfire) ? es.misfire : null,
+            e('Misfires this driving cycle, per cylinder (' + run + '; few minutes of running say little' + (es.misfirePartial ? '; cylinder bank 1 only: the second engine unit gave none' : '') + ')', Array.isArray(es.misfire) ? es.misfire : null,
                 (v) => v.map((n, i) => (i + 1) + ': ' + (n === null ? '?' : n)).join(', '));
             e('High-voltage battery charge', es.hvSoc, (v) => r0(v) + ' %');
             e('High-voltage battery health (SOH)', es.hvSoh, (v) => r0(v) + ' %');

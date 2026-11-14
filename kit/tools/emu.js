@@ -3,7 +3,8 @@
  * emu.js - live emulator: a built app running with the real runtime, drawn in the browser by the car's
  * GPU draw engine (kit/renderd/src/gfx.c as WebAssembly, kit/emu/web/gfx/).
  *
- *   node kit/tools/emu.js redline [--port 8077] [--bg screenshot.png] [--no-touch] [--no-controller]   ->  http://localhost:8077 (this computer only)
+ *   node kit/tools/emu.js redline [--port 8077] [--bg screenshot.png] [--no-touch] [--no-controller] [--car b58|n63]   ->  http://localhost:8077 (this computer only)
+ *   --car: a sample car (kit/tools/emu-car.js) sends the signals and answers over the diagnostic link
  *
  * Three parts in this process:
  *   app       python3 kit/tools/build.py <id>, then dist/<id> in a child node (hu-stub.js: a stubbed head
@@ -62,6 +63,9 @@ const NO_CONTROLLER = args.indexOf('--no-controller') >= 0;
 const opt = (k, d) => { const i = args.indexOf(k); if (i < 0) return d; const v = args[i + 1]; args.splice(i, 2); return v; };
 const PORT = Number(opt('--port', 8077));
 const BG = (() => { const b = opt('--bg', null); return b ? path.resolve(b) : null; })();
+// a sample car for the app (hu-stub.js reads MGU_EMU_CAR): its signals and diagnostic answers
+const CAR = opt('--car', null);
+if (CAR) process.env.MGU_EMU_CAR = CAR;
 // touch routing offered by the renderer (the Store's mgu-render: on; --no-touch or the page's switch: a renderer without
 // it, where the kit draws the slim bar over the HMI's own buttons and every tap is the HMI's)
 const Touch = { on: (() => { const i = args.indexOf('--no-touch'); if (i < 0) return true; args.splice(i, 1); return false; })() };

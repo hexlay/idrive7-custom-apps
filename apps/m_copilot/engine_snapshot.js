@@ -15,7 +15,12 @@
  * and scalings are app.json "config.dme" (M Vitals' table) and "config.battery" (eDrive's); each
  * value has candidates, the first plausible answer wins and is asked first next time (kit/dids.js).
  *
- *   const snap = new EngineSnapshot(diag, ctx.spec.config, log);
+ * Engines: the B38 / B48 / B58 (one engine unit, 0x12), the twin-turbo V8s and V12s (an engine unit per cylinder
+ * bank: 0x12 for bank 1, 0x13 for bank 2; misfires of the cylinders a unit doesn't report are asked of the other)
+ * and the diesels (no ignition timing; their units refuse the F4xx boost identifiers, OBD PID 70 answers).
+ *
+ *   const snap = new EngineSnapshot(diag, ctx.spec.config, log, () => vehicle.engineKind());
+ *     engineKind() -> { dme2: 0x13 or null, diesel }
  *   await snap.read({ budgetMs: 3500, steady, hybrid })  -> { at, values: { iat: 31, ... } } (cached 20 s)
  */
 const { DidReader } = require('./kit/dids');
@@ -25,8 +30,9 @@ const TIMEOUT_MS = 1500;            // per request: a unit that is silent costs 
 const GIVE_UP = 3;                  // a value that failed this often in a row is not asked again this session
 
 class EngineSnapshot {
-    constructor(diag, config, log) {
+    constructor(diag, config, log, engineKind) {
         this.log = log || console;
+        this.kind = () => { try { return (engineKind && engineKind()) || {}; } catch (e) { return {}; } };
         this.dme = (config && config.dme) || {};
         this.battery = (config && config.battery) || {};
         this.rd = new DidReader(diag, { ecu: this.dme.ecu || 0x12 });
@@ -35,7 +41,8 @@ class EngineSnapshot {
         this.last = null;
         this.busy = null;
         this.baro = null;
-        this.misMode = null; this.misCyl = 0;
+        this.mis1 = { mode: null, mids: null };              // the engine unit's misfire monitors: OBD 06 / UDS, their MIDs
+        this.mis2 = { mode: null, mids: null, none: false }; // the second engine unit's (V8 / V12)
         this.hvMissing = false;
     }
 
@@ -71,6 +78,7 @@ class EngineSnapshot {
         this.failsAt = Date.now();
         this.fails = {};
         this.hvMissing = false;
+        this.mis2.none = false;
     }
 
     async _read(opts) {
@@ -98,7 +106,9 @@ class EngineSnapshot {
             if (ba !== null) values.boostActual = (ba - baro) / 100;
             if (ba === null) { const m = await one('boost', d.boost); if (m !== null) values.boostActual = (m - baro) / 100; }
         }
-        for (const k of running ? ['iat', 'loadTarget', 'loadActual', 'timing', 'hpfp', 'lpfp'] : ['iat', 'hpfp', 'lpfp']) {
+        // a diesel has no ignition timing (compression ignition): not asked
+        const diesel = !!this.kind().diesel;
+        for (const k of (running ? ['iat', 'loadTarget', 'loadActual', 'timing', 'hpfp', 'lpfp'] : ['iat', 'hpfp', 'lpfp']).filter((x) => !(diesel && x === 'timing'))) {
             const v = await one(k, d[k]);
             if (v !== null) values[k] = v;
         }
@@ -109,7 +119,7 @@ class EngineSnapshot {
         if (v12 !== null) values.v12 = v12;
         if (running && ok() && d.misfire) {
             const m = await this._misfire(ok);
-            if (m) values.misfire = m;
+            if (m) { values.misfire = m.counts; if (m.partial) values.misfirePartial = true; }
         }
         // the high-voltage battery: hybrids / EVs only (a car whose unit never answers is not asked again)
         if (opts.hybrid && !this.hvMissing) {
@@ -136,7 +146,8 @@ class EngineSnapshot {
             const ok = () => Date.now() < until && (!opts || !opts.steady || opts.steady());
             const out = {};
             const baro = this.baro !== null ? this.baro : 101.3, d = this.dme;
-            for (const k of ['boostTarget', 'boostActual', 'iat', 'timing']) {
+            const diesel = !!this.kind().diesel;
+            for (const k of ['boostTarget', 'boostActual', 'iat', 'timing'].filter((x) => !(diesel && x === 'timing'))) {
                 if (!ok() || !d[k] || (this.fails[k] || 0) >= GIVE_UP) continue;
                 const v = await EngineSnapshot.within(this.rd, k, d[k], ok);
                 this.fails[k] = v === null ? (this.fails[k] || 0) + 1 : 0;
@@ -162,46 +173,92 @@ class EngineSnapshot {
         return rows.map(([name, list, rd, key]) => {
             key = key || name;
             const out = { name, value: v[name], via: null, why: null, fails: this.fails[key] || 0 };
+            // what this engine doesn't have: said so, not asked
+            if (name === 'timing' && this.kind().diesel) { out.na = 'diesel: no spark ignition'; return out; }
             if (list && list.length) {
                 if (out.value !== undefined) out.via = label(list[rd.pick[key] || 0] || list[0]);
                 let last = null;
                 list.forEach((c) => { const r = rd.raws[rd.key(Object.assign({ timeoutMs: TIMEOUT_MS }, c))]; if (r && !r.ok && (!last || r.t > last.t)) last = r; });
                 if (last) out.why = last.why;
             }
-            if (name === 'misfire' && this.misMode !== null) out.via = this.misMode ? 'UDS F6A2..' : 'OBD 06 A2..';
+            if (name === 'misfire' && this.mis1.mode !== null) out.via = this.mis1.mode ? 'UDS F6A2..' : 'OBD 06 A2..';
             return out;
         });
     }
 
-    /** misfires per cylinder in this driving cycle (OBD 06, MIDs A2.. = cylinder 1..), as M Vitals reads them */
+    /**
+     * Misfires per cylinder in this driving cycle (OBD 06, MIDs A2.. = cylinder 1..), as M Vitals reads them.
+     * A V8 / V12 has an engine unit per cylinder bank: when the first reports 6 cylinders or fewer, the second
+     * (0x13) is asked too. MIDs it has past the first unit's are those cylinders; the same MIDs again are its
+     * own bank, numbered on (BMW counts bank 1 as cylinders 1-4, bank 2 as 5-8). When the second unit gives
+     * none, the counts are bank 1's, marked partial.
+     * Resolves { counts, partial } or null.
+     */
     async _misfire(ok) {
-        const m = this.dme.misfire || {}, ecu = m.ecu == null ? (this.dme.ecu || 0x12) : m.ecu, tid = parseInt(m.tid || '0C', 16), rd = this.rd;
+        const m = this.dme.misfire || {}, ecu = m.ecu == null ? (this.dme.ecu || 0x12) : m.ecu, tid = parseInt(m.tid || '0C', 16);
         if ((this.fails.misfire || 0) >= GIVE_UP) return null;
-        if (this.misMode === null) {
-            if (await rd.monitor(ecu, 0xA2, false)) this.misMode = false;
-            else if (await rd.monitor(ecu, 0xA2, true)) this.misMode = true;
-            else { this.fails.misfire = (this.fails.misfire || 0) + 1; return null; }
+        const one = await this._misfireUnit(ecu, this.mis1, tid, ok);
+        if (!one) {
+            if (this.mis1.mode === null) this.fails.misfire = (this.fails.misfire || 0) + 1;
+            return null;
         }
-        if (!this.misCyl) {
-            const sup = await rd.supported(ecu, 0xA0, this.misMode);
-            let n = 0;
-            while (sup && n < 12 && sup.indexOf(0xA2 + n) >= 0) n++;
-            if (n) this.misCyl = n;
+        this.fails.misfire = 0;
+        const counts = one.first ? new Array(one.first).fill(null).concat(one.counts) : one.counts;
+        const dme2 = this.kind().dme2;
+        if (!dme2 || counts.length > 6 || this.mis2.none) return { counts, partial: !!dme2 && counts.length <= 6 };
+        const two = await this._misfireUnit(dme2, this.mis2, tid, ok);
+        if (!two) {
+            if (!ok()) return null;                                      // out of time: the whole engine next time
+            if (this.mis2.mode === null) this.mis2.none = true;           // the second unit has no misfire monitors
+            return { counts, partial: true };
+        }
+        let all;
+        if (two.first >= counts.length) {                                 // numbered on: its cylinders where they are
+            all = counts.slice();
+            while (all.length < two.first) all.push(null);
+            all = all.concat(two.counts);
+        } else if (two.first === 0 && two.counts.length > counts.length) all = counts.concat(two.counts.slice(counts.length));
+        else all = counts.concat(two.counts);                             // its own bank, from its cylinder 1
+        return { counts: all, partial: false };
+    }
+
+    /**
+     * One unit's misfire counts. st = { mode, mids } kept for it: mode false = OBD 06, true = UDS 22 F6xx;
+     * mids = the cylinder MIDs it has (A2..AD, from its supported list A0), or null when it gives no list (then
+     * A2, A3 ... until one is refused). Resolves { first: cylinder index of the first count, counts } or null.
+     */
+    async _misfireUnit(ecu, st, tid, ok) {
+        const rd = this.rd;
+        const cylMids = (sup) => { const l = (sup || []).filter((x) => x >= 0xA2 && x <= 0xAD).sort((a, b) => a - b); return l.length ? l : null; };
+        if (st.mode === null) {
+            // the unit's list of monitors first (a bank 2 unit may have no cylinder 1), then cylinder 1 itself
+            for (const mode of [false, true]) {
+                if (!ok()) return null;
+                const mids = cylMids(await rd.supported(ecu, 0xA0, mode));
+                if (mids) { st.mode = mode; st.mids = mids; break; }
+            }
+            if (st.mode === null) {
+                if (await rd.monitor(ecu, 0xA2, false)) st.mode = false;
+                else if (await rd.monitor(ecu, 0xA2, true)) st.mode = true;
+                else return null;
+            }
         }
         const counts = [];
-        for (let c = 0; c < (this.misCyl || 12); c++) {
+        const list = st.mids || [];
+        for (let c = 0; c < (st.mids ? list.length : 12); c++) {
             if (!ok()) return null;                   // out of time / the engine started: the counts are skipped
-            const res = await rd.monitor(ecu, 0xA2 + c, this.misMode);
+            const mid = st.mids ? list[c] : 0xA2 + c;
+            const res = await rd.monitor(ecu, mid, st.mode);
             if (!res) {
-                if (this.misCyl || !c || !/^NRC/.test(rd.raws[rd.monitorKey(ecu, 0xA2 + c, this.misMode)].why)) return null;
+                if (st.mids || !c || !/^NRC/.test(rd.raws[rd.monitorKey(ecu, mid, st.mode)].why)) return null;
                 break;
             }
             const tr = res.find((x) => x.tid === tid) || res[0];
             counts.push(tr.value >= 65535 ? null : tr.value);
         }
-        if (!this.misCyl) this.misCyl = counts.length;
-        this.fails.misfire = 0;
-        return counts.length === this.misCyl ? counts : null;
+        if (!counts.length) return null;
+        if (!st.mids) st.mids = counts.map((x, i) => 0xA2 + i);
+        return { first: st.mids[0] - 0xA2, counts };
     }
 }
 

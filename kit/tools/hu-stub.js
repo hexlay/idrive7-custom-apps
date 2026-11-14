@@ -278,7 +278,8 @@ function liveLoop(hu) {
 
 /**
  * ctx.signals: watch() keeps the handlers; hu.feed(iface, field, value) calls them as a SOME/IP
- * notification would (the provider then counts as available). Methods (UDS, setters) fail.
+ * notification would (the provider then counts as available). Methods (UDS, setters) fail, unless
+ * MGU_EMU_CAR names a sample car (emu-car.js): it feeds the signals and its units answer over TASU.
  */
 function liveSignals(hu) {
     const subs = hu.subs = {};
@@ -288,13 +289,14 @@ function liveSignals(hu) {
         if (avail !== false) s.res.available = true;
         try { s.h[field](value); } catch (e) { hu.log.warn(iface + '.' + field + ': ' + e); }
     });
+    const car = process.env.MGU_EMU_CAR ? require('./emu-car').start(hu, process.env.MGU_EMU_CAR) : null;
     return {
         watch: async (iface, inst, handlers) => {
             const res = { iface, available: false, proxy: null, error: null, shutdown: () => Promise.resolve() };
             (subs[iface] = subs[iface] || []).push({ h: handlers || {}, res });
             return res;
         },
-        proxy: no, call: no, set: no, on: no, onAvailable: () => Promise.resolve(), hasNative: () => false,
+        proxy: car ? car.proxy : no, call: car ? car.call : no, set: no, on: car ? car.on : no, onAvailable: car ? car.onAvailable : () => Promise.resolve(), hasNative: () => false,
         loadConfig: () => { throw new Error('emulator: no SOME/IP configs'); },
     };
 }
@@ -410,7 +412,7 @@ function runLive(stage, dataDir) {
 
     process.on('message', (m) => {
         if (m.t === 'set') settings.set(m.k, m.v);
-        else if (m.t === 'sig') {
+        else if (m.t === 'sig' && !hu.sampleCar) {
             manual = m.mode === 'manual' ? m.v : null;
             const want = m.mode === 'manual' ? 'auto' : 'on';
             if (settings.get('demo') !== want) settings.set('demo', want);

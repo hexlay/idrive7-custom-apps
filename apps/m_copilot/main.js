@@ -328,7 +328,7 @@ mgu.run({
                 try {
                     const d = await diagLink();
                     if (!d.available) return;
-                    if (!snapshot) { const EngineSnapshot = require('./engine_snapshot'); snapshot = new EngineSnapshot(d, ctx.spec && ctx.spec.config, log); }
+                    if (!snapshot) { const EngineSnapshot = require('./engine_snapshot'); snapshot = new EngineSnapshot(d, ctx.spec && ctx.spec.config, log, () => vehicle.engineKind()); }
                     const x = await snapshot.sample({ budgetMs: 900, steady });
                     if (!x || !drive) return;
                     drive.loadSamples++;
@@ -511,15 +511,16 @@ mgu.run({
          * gearbox oil, 12 V. Only while steady, within a time budget; kept 20 s.
          */
         let snapshot = null;
+        // a plug-in hybrid: the car says so (engine type), or its high-voltage battery sends values
+        const hybridCar = () => /hybrid|electric/.test(vehicle.engineType || '') || telemetry.hvVolt !== null || telemetry.hvTemp !== null;
         async function engineSnapshot() {
             try {
                 // parked without ignition the engine unit sleeps: nothing to read (and its silence is not a failure)
                 if (carAwake() === 'asleep') { telemetry.engineSnap = null; return; }
                 const d = await diagLink();
                 if (!d.available || !steady()) return;
-                if (!snapshot) { const EngineSnapshot = require('./engine_snapshot'); snapshot = new EngineSnapshot(d, ctx.spec && ctx.spec.config, log); }
-                const hybrid = /hybrid|electric/.test(vehicle.engineType || '') || telemetry.hvVolt !== null || telemetry.hvTemp !== null;
-                const r = await snapshot.read({ budgetMs: 3500, steady, hybrid, needOil: telemetry.oilTemp === null, engine: engineState() });
+                if (!snapshot) { const EngineSnapshot = require('./engine_snapshot'); snapshot = new EngineSnapshot(d, ctx.spec && ctx.spec.config, log, () => vehicle.engineKind()); }
+                const r = await snapshot.read({ budgetMs: 3500, steady, hybrid: hybridCar(), needOil: telemetry.oilTemp === null, engine: engineState() });
                 if (r) telemetry.engineSnap = r;
             } catch (e) {
                 log.warn('M-Copilot: engine snapshot skipped: ' + (e.message || e));
@@ -1161,7 +1162,7 @@ mgu.run({
                 ['VIN (type part)', ok(d && d.descriptor + (vehicle.vinFrom ? ' · ' + vehicle.vinFrom : ''), { c: 'amber', v: 'not received' })],
                 ['Make, model year', ok(d && [d.brand, d.year].filter(Boolean).join(', '))],
                 ['Engine type', sigState(vehicle.engineType, IF.v2, 'statusVehiclePartType')],
-                ['Engine unit', ok(u[0x12], { c: vehicle.tried ? 'grey' : 'amber', v: vehicle.tried ? 'not in the table' : 'not read yet' })],
+                ['Engine unit', ok(Vehicle.engineUnitName(u), { c: vehicle.tried ? 'grey' : 'amber', v: vehicle.tried ? 'not in the table' : 'not read yet' })],
                 ['Gearbox unit', ok(u[0x18], { c: vehicle.tried ? 'grey' : 'amber', v: vehicle.tried ? 'not in the table' : 'not read yet' })],
                 ['Vehicle state', sigState(CONDS[telemetry.condition], IF.cond, 'VehicleCondition')],
                 ['Engine', ok(engineState(), { v: 'not known' })],
@@ -1207,17 +1208,20 @@ mgu.run({
                 hvSoc: 'HV battery charge', hvSoh: 'HV battery health' };
             const FMT = { boostActual: (v) => fix(v, 2) + ' bar', boostTarget: (v) => fix(v, 2) + ' bar', baro: (v) => fix(v) + ' kPa', iat: (v) => fix(v) + ' °C', loadActual: (v) => fix(v) + ' %',
                 loadTarget: (v) => fix(v) + ' %', timing: (v) => fix(v, 1) + '°', hpfp: (v) => fix(v) + ' bar', lpfp: (v) => fix(v, 1) + ' bar', gearboxOil: (v) => fix(v) + ' °C', oil: (v) => fix(v) + ' °C',
-                v12: (v) => fix(v, 2) + ' V', misfire: (v) => v.join(' '), hvSoc: (v) => fix(v) + ' %', hvSoh: (v) => fix(v) + ' %' };
+                v12: (v) => fix(v, 2) + ' V', misfire: (v) => v.map((n) => (n === null ? '?' : n)).join(' ') + (telemetry.engineSnap && telemetry.engineSnap.values.misfirePartial ? ' (bank 1)' : ''), hvSoc: (v) => fix(v) + ' %', hvSoh: (v) => fix(v) + ' %' };
             const RUN_ONLY = ['boostActual', 'boostTarget', 'loadActual', 'loadTarget', 'timing', 'misfire'];
             const snapOff = telemetry.engineSnap && telemetry.engineSnap.engine === 'off';
             const rep = snapshot ? snapshot.report() : Object.keys(NAMES).map((name) => ({ name }));
             const engine = rep.map((r) => {
                 let st;
-                if (r.value !== undefined && r.value !== null) st = { c: 'green', v: FMT[r.name](r.value) + (r.via ? ' · ' + r.via : '') };
+                if (r.na) st = { c: 'grey', v: r.na };
+                else if (r.value !== undefined && r.value !== null) st = { c: 'green', v: FMT[r.name](r.value) + (r.via ? ' · ' + r.via : '') };
+                // the engine unit's oil temperature is only asked when the car's own signal has none
+                else if (r.name === 'oil' && telemetry.oilTemp !== null) st = { c: 'grey', v: 'not needed: car signal has it' };
                 else if (carAwake() === 'asleep') st = { c: 'grey', v: 'car asleep (ignition off)' };
                 else if (!diag || !diag.available) st = { c: diag && diag.error ? 'red' : 'amber', v: 'no diagnostic link' + (diag && diag.error ? '' : ' yet') };
                 else if (snapOff && RUN_ONLY.indexOf(r.name) >= 0) st = { c: 'grey', v: 'engine off: not read' };
-                else if ((r.name === 'hvSoc' || r.name === 'hvSoh') && snapshot && snapshot.hvMissing) st = { c: 'grey', v: 'no HV battery' };
+                else if ((r.name === 'hvSoc' || r.name === 'hvSoh') && snapshot && (snapshot.hvMissing || (telemetry.engineSnap && !hybridCar()))) st = { c: 'grey', v: 'no HV battery' };
                 else if (r.why) st = { c: r.fails >= 3 ? 'red' : 'amber', v: r.why + (r.fails ? ' (' + r.fails + 'x)' : '') };
                 else st = { c: 'amber', v: 'not read yet' };
                 return [NAMES[r.name], st];
