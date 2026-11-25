@@ -485,7 +485,7 @@ def build(app_id, language='en'):
     for k, why in sorted(unit_missing.items()):
         print('  this unit: %s - %s' % (k, why))
     xml, uidesc, strings, state_ids = build_ui(spec, language)
-    unicode_resources(uidesc, strings, language)
+    unicode_resources(uidesc, strings, language, app_id)
     for lang, tbl in spec.get('strings', {}).items():
         strings.update(tbl)
 
@@ -548,6 +548,13 @@ def build(app_id, language='en'):
         for f in files:
             if f not in skip and not f.startswith('.'):
                 shutil.copy(os.path.join(root, f), os.path.join(out, f))
+    # Optional per-app/language atlases can override an individual runtime font family.
+    if language != 'en':
+        app_fonts = os.path.join(KIT, 'localization', 'fonts', app_id, language)
+        if os.path.isdir(app_fonts):
+            for asset in sorted(os.listdir(app_fonts)):
+                if asset.endswith('.json'):
+                    shutil.copy(os.path.join(app_fonts, asset), os.path.join(src, 'javascript', 'kit', 'fonts', asset))
     # the project's licence, and the MIT notice of the code and data it is built on
     for f in ('LICENSE', 'LICENSE.MIT'):
         if os.path.exists(os.path.join(ROOT, f)):     # (a store that fetched only the older shared list)
@@ -564,7 +571,7 @@ def build(app_id, language='en'):
     rt_spec['mguInternet'] = bool(spec.get('mguInternet') or spec.get('internet'))
     rt_spec['stateIds'] = state_ids
     json.dump(rt_spec, open(os.path.join(src, 'javascript', 'kit', 'app-spec.json'), 'w', encoding='utf-8', newline='\n'), indent=1)
-    locale = {'language': language, 'strings': load_locale(language)}
+    locale = {'language': language, 'strings': load_locale(language, app_id)}
     if language == 'zh-CN':
         locale['credit'] = zh_credit()['corner']
     json.dump(locale, open(os.path.join(src, 'javascript', 'kit', 'locale.json'), 'w', encoding='utf-8', newline='\n'), ensure_ascii=False)

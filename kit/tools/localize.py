@@ -22,10 +22,18 @@ def languages():
     return ['en'] + sorted(p.stem for p in LOCALES.glob('*.json') if p.stem != 'en')
 
 
-def load_locale(language):
+def load_locale(language, app_id=None):
     if language not in languages():
         raise ValueError('Unknown language: ' + language)
-    return {} if language == 'en' else json.loads((LOCALES / (language + '.json')).read_text(encoding='utf-8'))
+    if language == 'en':
+        return {}
+    name = language + '.json'
+    words = json.loads((LOCALES / name).read_text(encoding='utf-8'))
+    if app_id:
+        override = ROOT / 'apps' / app_id / name
+        if override.is_file():
+            words.update(json.loads(override.read_text(encoding='utf-8')))
+    return words
 
 
 def text(value, words):
@@ -39,10 +47,12 @@ def package_version(version, language):
 
 
 def localize_spec(spec, language):
-    words = load_locale(language)
+    words = load_locale(language, spec['id'])
     s = copy.deepcopy(spec)
     s['version'] = package_version(s['version'], language)
     s['title'] = text(s['title'], words)
+    if language != 'en' and 'description' in s:
+        s['description'] = text(s['description'], words)
     for screen in s.get('screens', []):
         if 'title' in screen:
             screen['title'] = text(screen['title'], words)
@@ -58,9 +68,9 @@ def localize_spec(spec, language):
     return s
 
 
-def unicode_resources(ui, strings, language='en'):
+def unicode_resources(ui, strings, language='en', app_id=None):
     """Localize static resources; give initial Text cells stable Unicode StringIds."""
-    words = load_locale(language)
+    words = load_locale(language, app_id)
     counter = [0]
 
     def visit(obj):

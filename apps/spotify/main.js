@@ -276,6 +276,9 @@ function drawDeviceIcon(cv, cx, cy, type, col) {
     }
 }
 
+const MEDIA = { literal: true };
+const MEDIA_BOLD = { font: 'bold', literal: true };
+
 /** str cut (with "..") to fit maxW pixels at this size: room decides, not a character count. */
 function fitText(cv, str, maxW, size, opts) {
     str = String(str || '');
@@ -504,8 +507,8 @@ mgu.run({
             const textX = miniX + miniSz + 18, textW = Math.max(120, timeR - timeW - 22 - textX);
             const tSize = Math.min(sz(cv, 15), 22), mSize = Math.min(sz(cv, 12), 18);
             if (curTrk) {
-                cv.text(fitText(cv, curTrk.title, textW, tSize, { font: 'bold' }), textX, cy - 4, tSize, t.text, { font: 'bold' });
-                cv.text(fitText(cv, curTrk.artist + (curTrk.album ? '  ·  ' + curTrk.album : ''), textW, mSize), textX, cy + mSize + 4, mSize, t.dim);
+                cv.text(fitText(cv, curTrk.title, textW, tSize, MEDIA_BOLD), textX, cy - 4, tSize, t.text, MEDIA_BOLD);
+                cv.text(fitText(cv, curTrk.artist + (curTrk.album ? '  ·  ' + curTrk.album : ''), textW, mSize, MEDIA), textX, cy + mSize + 4, mSize, t.dim, MEDIA);
                 cv.text(timeText, timeR, cy + timeSize * 0.36, timeSize, t.dim, { align: 'right', font: 'num' });
             } else {
                 cv.text('Nothing playing', textX, cy - 4, tSize, t.dim, { font: 'bold' });
@@ -631,9 +634,9 @@ mgu.run({
             const lineGap = Math.max(4, Math.round((h - tSz - aSz) * 0.18));
             const titleY = cy - Math.round(lineGap * 0.5) - 1;
             const metaY = cy + aSz + Math.round(lineGap * 0.5);
-            cv.text(fitText(cv, trk.title, textW, tSz, { font: 'bold' }), tx, titleY, tSz, o.playing ? '#ffffff' : t.text, { font: 'bold' });
+            cv.text(fitText(cv, trk.title, textW, tSz, MEDIA_BOLD), tx, titleY, tSz, o.playing ? '#ffffff' : t.text, MEDIA_BOLD);
             const metaText = trk.artist + (trk.album ? '  ·  ' + trk.album : '');
-            cv.text(fitText(cv, metaText, textW, aSz), tx, metaY, aSz, o.playing ? '#aeb8c8' : t.dim);
+            cv.text(fitText(cv, metaText, textW, aSz, MEDIA), tx, metaY, aSz, o.playing ? '#aeb8c8' : t.dim, MEDIA);
         }
 
         /** A list that is empty, or still loading: a headline (a spinner before it while loading), a line, a button. */
@@ -742,7 +745,7 @@ mgu.run({
                 const textW = leftX + leftW - textX - (isPlPlaying ? 44 : 14);
                 const nSize = Math.min(sz(cv, 13.5), 19), dSize = Math.min(sz(cv, 11), 15.5);
                 const nY = py + Math.round(plH * 0.44), dY = nY + dSize + 7;
-                cv.text(fitText(cv, pl.name, textW, nSize, { font: 'bold' }), textX, nY, nSize, isSel ? '#ffffff' : t.text, { font: 'bold' });
+                cv.text(fitText(cv, pl.name, textW, nSize, MEDIA_BOLD), textX, nY, nSize, isSel ? '#ffffff' : t.text, MEDIA_BOLD);
                 const sub = (pl.trackCount || 0) + ' songs' + (isPlPlaying ? (spotify.isPlaying ? '  ·  Playing' : '  ·  Paused') : '');
                 cv.text(fitText(cv, sub, textW, dSize), textX, dY, dSize, isPlPlaying ? S.acc(t) : t.dim);
                 if (isPlPlaying) drawMiniEqualizer(cv, leftX + leftW - 22, py + plH / 2, S.acc(t), spotify.isPlaying, spectrumSeed);
@@ -805,7 +808,7 @@ mgu.run({
             const hDescSz = Math.min(sz(cv, 11), 15.5);
             const runtime = fmtTotalRuntime(curTracks);
             const metaLine = trackTotal + ' songs' + (runtime ? '  ·  ' + runtime : '') + (curPl.description ? '  ·  ' + curPl.description : '');
-            cv.text(fitText(cv, curPl.name, hTw, hTitleSz, { font: 'bold' }), hTx, heroY + Math.round(heroH * 0.44), hTitleSz, t.text, { font: 'bold' });
+            cv.text(fitText(cv, curPl.name, hTw, hTitleSz, MEDIA_BOLD), hTx, heroY + Math.round(heroH * 0.44), hTitleSz, t.text, MEDIA_BOLD);
             cv.text(fitText(cv, metaLine, hTw, hDescSz), hTx, heroY + Math.round(heroH * 0.74), hDescSz, t.dim);
 
             // ----- Right Pane: Modern 2-Line Track List -----
@@ -1059,15 +1062,15 @@ mgu.run({
                 cv.text(fitText(cv, devLabel, mw - 20, lab), mx + 18, 90, lab, t.dim);
             }
             const titleY = 90 + 12 + tSize * 0.94, artistY = titleY + aSize + 12, albumY = artistY + alSize + 10;
-            cv.text(fitText(cv, curTrk.title, mw, tSize, { font: 'bold' }), mx, titleY, tSize, t.text, { font: 'bold' });
-            cv.text(fitText(cv, curTrk.artist, mw, aSize), mx, artistY, aSize, t.text);
+            cv.text(fitText(cv, curTrk.title, mw, tSize, MEDIA_BOLD), mx, titleY, tSize, t.text, MEDIA_BOLD);
+            cv.text(fitText(cv, curTrk.artist, mw, aSize, MEDIA), mx, artistY, aSize, t.text, MEDIA);
             const ctxUri = spotify.contextUri || '';
             let from = '';
             if (/:collection$/.test(ctxUri)) from = 'Liked Songs';
             else if (/:playlist:/.test(ctxUri)) { const pl = (spotify.playlists || []).find((p) => p.uri === ctxUri); from = pl ? pl.name : 'a playlist'; }
             else if (/:artist:/.test(ctxUri)) from = curTrk.artist;
             const albumLine = [curTrk.album, from && from !== curTrk.album ? 'from ' + from : ''].filter(Boolean).join('  ·  ');
-            if (albumLine) cv.text(fitText(cv, albumLine, mw, alSize), mx, albumY, alSize, t.dim);
+            if (albumLine) cv.text(fitText(cv, albumLine, mw, alSize, MEDIA), mx, albumY, alSize, t.dim, MEDIA);
 
             // controls sizing first (adaptive to mw so Repeat and Heart never overlap even on 8.8" panels)
             const playR = Math.min(sz(cv, 26), Math.floor(mw * 0.082));
@@ -1161,7 +1164,7 @@ mgu.run({
                 const inMs = Math.max(0, dur - spotify.progressMs);
                 const infoMaxW = 1564 - sx;
                 if (busyOn('start', 'q:' + nx.id)) drawSpinner(cv, sx + s - 14, sy + s + 20 + nt * 0.6, sz(cv, 7), selC);
-                cv.text(fitText(cv, nx.title, infoMaxW - 24, nt, { font: 'bold' }), sx, sy + s + 22 + nt, nt, t.text, { font: 'bold' });
+                cv.text(fitText(cv, nx.title, infoMaxW - 24, nt, MEDIA_BOLD), sx, sy + s + 22 + nt, nt, t.text, MEDIA_BOLD);
                 const moreTxt = upcoming.length > 4 ? '+' + (upcoming.length - 4) + ' more' : '';
                 const moreW = moreTxt ? cv.textWidth(moreTxt, na) + 16 : 0;
                 cv.text(fitText(cv, nx.artist + '  ·  in ' + fmtTime(inMs), Math.max(120, infoMaxW - moreW), na), sx, sy + s + 30 + nt + na, na, t.dim);
@@ -1259,7 +1262,7 @@ mgu.run({
                     drawDeviceIcon(cv, rx + 40, mid, dev.type, isCur ? acc : '#aeb4bd');
                     const textX = rx + 82, bw = sz(cv, 104), bx = rx + rw - 12 - bw;
                     const vol = typeof dev.volume === 'number' ? '  ·  volume ' + dev.volume + ' %' : '';
-                    cv.text(fitText(cv, dev.name, bx - 20 - textX, nSize, { font: 'bold' }), textX, mid - 3, nSize, t.text, { font: 'bold' });
+                    cv.text(fitText(cv, dev.name, bx - 20 - textX, nSize, MEDIA_BOLD), textX, mid - 3, nSize, t.text, MEDIA_BOLD);
                     cv.text(fitText(cv, (isCur ? (spotify.isPlaying ? 'Playing here' : 'Paused here') : dev.type) + vol, bx - 20 - textX, sSize), textX, mid + sSize + 5, sSize, isCur ? acc : t.dim);
                     if (isCur) {
                         S.led(cv, bx + bw - cv.textWidth('Active', sSize) - 16, mid, acc, !!cv.place);

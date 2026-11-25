@@ -26,7 +26,7 @@ for manifest in sorted((root / 'apps').glob('*/app.json')):
             assert a['key'] == b['key'] and a['default'] == b['default']
             assert [o[0] for o in a.get('options', [])] == [o[0] for o in b.get('options', [])]
         _, ui, strings, _ = build.build_ui(copy.deepcopy(spec), language)
-        unicode_resources(ui, strings, language)
+        unicode_resources(ui, strings, language, spec['id'])
         assert len([k for k in strings if k.startswith('SID_CN_DYNAMIC_')]) == 256
         assert len(strings) <= 1024
         assert spec['title'] in strings.values()
@@ -56,6 +56,24 @@ for manifest in sorted((root / 'apps').glob('*/app.json')):
         keys.append(set(strings))
         count += 1
     assert keys[1] - keys[0] == {k for k in keys[1] if '_CN_CREDITS_' in k} and keys[0] <= keys[1]
+shared = load_locale('zh-CN')
+spotify = load_locale('zh-CN', 'spotify')
+override = json.loads((root / 'apps/spotify/zh-CN.json').read_text(encoding='utf-8'))
+assert spotify == {**shared, **override}
+assert load_locale('en', 'spotify') == {}
+assert load_locale('zh-CN', 'm_copilot') == shared
+for label in ('Previous page', 'On', 'Off'):
+    assert spotify[label] == shared[label]
+revision = json.loads((root / 'kit/tools/locale-revisions.json').read_text(encoding='utf-8'))['zh-CN']
+spotify_spec = {'id': 'spotify', 'title': 'Spotify', 'version': '1.0.0'}
+assert localize_spec(spotify_spec, 'zh-CN')['version'] == '1.0.0-zh.cn.%d' % revision
+
+atlas_path = root / 'kit/localization/fonts/spotify/zh-CN/cjk.json'
+atlas, = json.loads(atlas_path.read_text(encoding='utf-8'))['sizes']
+assert atlas['size'] == 40 and atlas['atlasH'] <= 3400
+for character in ''.join(spotify.values()) + '稻香陳奕迅藍牙音響客廳':
+    assert str(ord(character)) in atlas['glyphs'], character
+
 try:
     unicode_resources({}, {'SID_TEST_%d' % n: '' for n in range(769)})
 except ValueError:
