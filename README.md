@@ -4,9 +4,9 @@ Three apps for BMW iDrive 7 head units (MGU), installed through the [MGU Store](
 
 | App | Version | Internet | Reads from the car |
 | :--- | :---: | :---: | :--- |
-| [Spotify](#spotify) | 2.0.0 | Yes | Nothing |
-| [M-Copilot](#m-copilot) | 2.0.0 | Yes | Driving signals, service list, fault memory (read-only) |
-| [Speed Limit](#speed-limit) | 1.0.12 | No | Position, speed and power state (read-only) |
+| [Spotify](#spotify) | 2.0.1 | Yes | Nothing |
+| [M-Copilot](#m-copilot) | 2.0.1 | Yes | Driving signals, service list, fault memory (read-only) |
+| [Speed Limit](#speed-limit) | 1.0.13 | No | Position, speed and power state (read-only) |
 
 ## Install
 
